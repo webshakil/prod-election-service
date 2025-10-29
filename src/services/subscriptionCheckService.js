@@ -48,7 +48,7 @@ class SubscriptionCheckService {
 
     const query = `
       SELECT COUNT(*) as total
-      FROM votteryy_elections
+      FROM votteryyy_elections
       WHERE creator_id = $1 
         AND created_at >= $2
         AND status != 'cancelled'
