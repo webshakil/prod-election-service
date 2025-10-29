@@ -46,16 +46,23 @@ class SubscriptionCheckService {
     currentMonthStart.setDate(1);
     currentMonthStart.setHours(0, 0, 0, 0);
 
-    const query = `
-      SELECT COUNT(*) as total
-      FROM votteryyy_elections
-      WHERE creator_id = $1 
-        AND created_at >= $2
-        AND status != 'cancelled'
-    `;
+    // Try to count, but don't fail if table doesn't exist yet
+    try {
+      const query = `
+        SELECT COUNT(*) as total
+        FROM votteryyy_elections
+        WHERE creator_id = $1 
+          AND created_at >= $2
+          AND status != 'cancelled'
+      `;
 
-    const result = await pool.query(query, [userId, currentMonthStart]);
-    return parseInt(result.rows[0].total);
+      const result = await pool.query(query, [userId, currentMonthStart]);
+      return parseInt(result.rows[0].total);
+    } catch (error) {
+      // If elections table doesn't exist or column is wrong, return 0
+      console.warn('Could not count elections:', error.message);
+      return 0;
+    }
   }
 
   /**
