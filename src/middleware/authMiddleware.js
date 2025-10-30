@@ -26,6 +26,7 @@ export const extractUserData = (req, res, next) => {
     // Attach user data to request
     req.user = {
       userId: userData.userId,
+      //userId: userData.id,
       email: userData.email,
       phone: userData.phone || null,
       username: userData.username || null,

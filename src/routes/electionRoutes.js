@@ -77,6 +77,7 @@ router.post(
   extractUserData,
   requireCreator,
   idParamValidation,
+  uploadElectionMedia, 
   electionController.publishElection
 );
 
