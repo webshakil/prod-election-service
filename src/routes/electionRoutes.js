@@ -25,7 +25,7 @@ router.get('/files', electionController.getAvailableFiles);
 router.post(
   '/drafts',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   determineCreatorType,
   checkElectionCreationEligibility,
   draftValidation,
@@ -35,14 +35,14 @@ router.post(
 router.get(
   '/drafts',
   extractUserData,
-  requireCreator,
+  //requireCreator,
   electionController.getMyDrafts
 );
 
 router.get(
   '/drafts/:id',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   electionController.getDraft
 );
@@ -50,7 +50,7 @@ router.get(
 router.patch(
   '/drafts/:id',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   uploadElectionMedia,
   electionController.updateDraft
@@ -59,7 +59,7 @@ router.patch(
 router.delete(
   '/drafts/:id',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   electionController.deleteDraft
 );
@@ -67,7 +67,7 @@ router.delete(
 router.post(
   '/drafts/:id/publish',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   uploadElectionMedia, 
   electionController.publishElection
@@ -90,7 +90,7 @@ router.get(
 router.post(
   '/',
   extractUserData,
-  requireCreator,
+  // requireCreator, 
   determineCreatorType,
   checkElectionCreationEligibility,
   uploadElectionMedia,
@@ -126,7 +126,7 @@ router.get(
 router.put(
   '/:id',
   extractUserData,
-  requireCreator,
+  // requireCreator, 
   idParamValidation,
   uploadElectionMedia,
   electionController.updateElection
@@ -135,7 +135,7 @@ router.put(
 router.delete(
   '/:id',
   extractUserData,
-  requireCreator,
+  // requireCreator, 
   idParamValidation,
   electionController.deleteElection
 );
@@ -149,7 +149,7 @@ router.get(
 router.post(
   '/:electionId/questions',
   extractUserData,
-  requireCreator,
+  // requireCreator,
   idParamValidation,
   uploadQuestionImage,
   questionValidation,
@@ -165,7 +165,7 @@ router.get(
 router.put(
   '/questions/:questionId',
   extractUserData,
-  requireCreator,
+  // requireCreator, 
   idParamValidation,
   uploadQuestionImage,
   questionController.updateQuestion
@@ -174,7 +174,7 @@ router.put(
 router.delete(
   '/questions/:questionId',
   extractUserData,
-  requireCreator,
+  // requireCreator, 
   idParamValidation,
   questionController.deleteQuestion
 );
@@ -182,7 +182,7 @@ router.delete(
 router.post(
   '/questions/:questionId/options',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   uploadOptionImage,
   questionController.addOption
@@ -191,7 +191,7 @@ router.post(
 router.put(
   '/options/:optionId',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   uploadOptionImage,
   questionController.updateOption
@@ -200,7 +200,7 @@ router.put(
 router.delete(
   '/options/:optionId',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   questionController.deleteOption
 );
@@ -208,7 +208,7 @@ router.delete(
 router.post(
   '/:id/clone',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   cloneExportController.cloneElection
 );
@@ -216,7 +216,7 @@ router.post(
 router.get(
   '/:id/export',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   cloneExportController.exportElectionJSON
 );
@@ -224,7 +224,7 @@ router.get(
 router.get(
   '/:id/export/csv',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   cloneExportController.exportElectionCSV
 );
@@ -232,7 +232,7 @@ router.get(
 router.get(
   '/:id/export/questions',
   extractUserData,
-  requireCreator,
+  // requireCreator, // ❌ REMOVED
   idParamValidation,
   cloneExportController.exportQuestions
 );
@@ -283,7 +283,7 @@ export default router;
 // router.get(
 //   '/drafts',
 //   extractUserData,
-//   requireCreator,
+//   //requireCreator,
 //   electionController.getMyDrafts
 // );
 
@@ -315,7 +315,7 @@ export default router;
 // router.post(
 //   '/drafts/:id/publish',
 //   extractUserData,
-//   //requireCreator,
+//   requireCreator,
 //   idParamValidation,
 //   uploadElectionMedia, 
 //   electionController.publishElection
@@ -325,6 +325,14 @@ export default router;
 //   '/check-eligibility',
 //   extractUserData,
 //   electionController.checkEligibility
+// );
+
+// // ✅ NEW: Get ALL elections for any authenticated user
+// router.get(
+//   '/all-elections',
+//   extractUserData,
+//   paginationValidation,
+//   electionController.getAllElections
 // );
 
 // router.post(
@@ -477,285 +485,6 @@ export default router;
 //   cloneExportController.exportQuestions
 // );
 
-// router.post(
-//   '/:electionId/generate-voting-id',
-//   extractUserData,
-//   idParamValidation,
-//   cloneExportController.generateVotingId
-// );
-
-// export default router;
-
-
-
-
-
-
-
-
-
-
-
-
-// import express from 'express';
-// import electionController from '../controllers/electionController.js';
-// import questionController from '../controllers/questionController.js';
-// import cloneExportController from '../controllers/cloneExportController.js';
-// import { 
-//   extractUserData, 
-//   determineCreatorType,
-//   requireCreator,
-//   requireSubscribedCreator
-// } from '../middleware/authMiddleware.js';
-// import { checkElectionCreationEligibility } from '../middleware/subscriptionMiddleware.js';
-// import { uploadElectionMedia, uploadQuestionImage, uploadOptionImage } from '../middleware/uploadMiddleware.js';
-// import { 
-//   draftValidation, 
-//   electionValidation, 
-//   questionValidation,
-//   idParamValidation,
-//   paginationValidation 
-// } from '../utils/validators.js';
-
-// const router = express.Router();
-
-// router.post(
-//   '/drafts',
-//   extractUserData,
-//   requireCreator,
-//   determineCreatorType,
-//   checkElectionCreationEligibility,
-//   draftValidation,
-//   electionController.createDraft
-// );
-
-// // Get all my drafts
-// router.get(
-//   '/drafts',
-//   extractUserData,
-//   requireCreator,
-//   electionController.getMyDrafts
-// );
-
-// // Get single draft
-// router.get(
-//   '/drafts/:id',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   electionController.getDraft
-// );
-
-// // Update draft (including media upload)
-// router.patch(
-//   '/drafts/:id',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadElectionMedia,
-//   electionController.updateDraft
-// );
-
-// // Delete draft
-// router.delete(
-//   '/drafts/:id',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   electionController.deleteDraft
-// );
-
-// // Publish election from draft
-// router.post(
-//   '/drafts/:id/publish',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadElectionMedia, 
-//   electionController.publishElection
-// );
-
-
-// router.get(
-//   '/check-eligibility',
-//   extractUserData,
-//   electionController.checkEligibility
-// );
-
-// // Create election directly (without draft)
-// router.post(
-//   '/',
-//   extractUserData,
-//   requireCreator,
-//   determineCreatorType,
-//   checkElectionCreationEligibility,
-//   uploadElectionMedia,
-//   electionValidation,
-//   electionController.createElection
-// );
-
-// // Get all my elections
-// router.get(
-//   '/my-elections',
-//   extractUserData,
-//   requireCreator,
-//   paginationValidation,
-//   electionController.getMyElections
-// );
-
-// // Get public elections (no auth required)
-// router.get(
-//   '/public',
-//   paginationValidation,
-//   electionController.getPublicElections
-// );
-
-// // Get election by ID (public access)
-// router.get(
-//   '/:id',
-//   idParamValidation,
-//   electionController.getElection
-// );
-
-// // Get election by slug (public access)
-// router.get(
-//   '/slug/:slug',
-//   electionController.getElectionBySlug
-// );
-
-// // Update election
-// router.put(
-//   '/:id',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadElectionMedia,
-//   electionController.updateElection
-// );
-
-// // Delete election
-// router.delete(
-//   '/:id',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   electionController.deleteElection
-// );
-
-
-// router.get(
-//   '/:electionId/questions',
-//   idParamValidation,
-//   questionController.getElectionQuestions
-// );
-
-// // Add question to election
-// router.post(
-//   '/:electionId/questions',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadQuestionImage,
-//   questionValidation,
-//   questionController.addQuestion
-// );
-
-// // Get single question (public access)
-// router.get(
-//   '/questions/:questionId',
-//   idParamValidation,
-//   questionController.getQuestion
-// );
-
-// // Update question
-// router.put(
-//   '/questions/:questionId',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadQuestionImage,
-//   questionController.updateQuestion
-// );
-
-// // Delete question
-// router.delete(
-//   '/questions/:questionId',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   questionController.deleteQuestion
-// );
-
-// // ============================================
-// // OPTION ROUTES
-// // ============================================
-
-// // Add option to question
-// router.post(
-//   '/questions/:questionId/options',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadOptionImage,
-//   questionController.addOption
-// );
-
-// // Update option
-// router.put(
-//   '/options/:optionId',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   uploadOptionImage,
-//   questionController.updateOption
-// );
-
-// // Delete option
-// router.delete(
-//   '/options/:optionId',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   questionController.deleteOption
-// );
-
-
-// router.post(
-//   '/:id/clone',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   cloneExportController.cloneElection
-// );
-
-// // Export election data (JSON)
-// router.get(
-//   '/:id/export',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   cloneExportController.exportElectionJSON
-// );
-
-// // Export election data (CSV)
-// router.get(
-//   '/:id/export/csv',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   cloneExportController.exportElectionCSV
-// );
-
-// // Export questions only
-// router.get(
-//   '/:id/export/questions',
-//   extractUserData,
-//   requireCreator,
-//   idParamValidation,
-//   cloneExportController.exportQuestions
-// );
-
-// // Generate unique voting ID
 // router.post(
 //   '/:electionId/generate-voting-id',
 //   extractUserData,
