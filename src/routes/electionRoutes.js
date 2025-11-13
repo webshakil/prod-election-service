@@ -25,7 +25,7 @@ router.get('/files', electionController.getAvailableFiles);
 router.post(
   '/drafts',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   determineCreatorType,
   checkElectionCreationEligibility,
   draftValidation,
@@ -42,7 +42,7 @@ router.get(
 router.get(
   '/drafts/:id',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   idParamValidation,
   electionController.getDraft
 );
@@ -50,7 +50,7 @@ router.get(
 router.patch(
   '/drafts/:id',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, 
   idParamValidation,
   uploadElectionMedia,
   electionController.updateDraft
@@ -59,7 +59,7 @@ router.patch(
 router.delete(
   '/drafts/:id',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, 
   idParamValidation,
   electionController.deleteDraft
 );
@@ -67,7 +67,7 @@ router.delete(
 router.post(
   '/drafts/:id/publish',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, 
   idParamValidation,
   uploadElectionMedia, 
   electionController.publishElection
@@ -182,7 +182,7 @@ router.delete(
 router.post(
   '/questions/:questionId/options',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, //
   idParamValidation,
   uploadOptionImage,
   questionController.addOption
@@ -191,7 +191,7 @@ router.post(
 router.put(
   '/options/:optionId',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   idParamValidation,
   uploadOptionImage,
   questionController.updateOption
@@ -200,7 +200,7 @@ router.put(
 router.delete(
   '/options/:optionId',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   idParamValidation,
   questionController.deleteOption
 );
@@ -208,7 +208,7 @@ router.delete(
 router.post(
   '/:id/clone',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, 
   idParamValidation,
   cloneExportController.cloneElection
 );
@@ -216,7 +216,7 @@ router.post(
 router.get(
   '/:id/export',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   idParamValidation,
   cloneExportController.exportElectionJSON
 );
@@ -224,7 +224,7 @@ router.get(
 router.get(
   '/:id/export/csv',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   idParamValidation,
   cloneExportController.exportElectionCSV
 );
@@ -232,7 +232,7 @@ router.get(
 router.get(
   '/:id/export/questions',
   extractUserData,
-  // requireCreator, // ❌ REMOVED
+  // requireCreator, // 
   idParamValidation,
   cloneExportController.exportQuestions
 );

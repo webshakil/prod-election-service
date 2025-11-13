@@ -209,12 +209,12 @@ class ElectionService {
         // Category ($27)
         mergedData.category_id ? parseInt(mergedData.category_id) : null, // $27
         
-        // ✅ VIDEO WATCH TIME FIELDS ($28-$30)
+        //  VIDEO WATCH TIME FIELDS ($28-$30)
         mergedData.video_watch_required || false,                 // $28 video_watch_required
         mergedData.minimum_watch_time ? parseInt(mergedData.minimum_watch_time) : 0, // $29 minimum_watch_time
         mergedData.minimum_watch_percentage ? parseFloat(mergedData.minimum_watch_percentage) : 0, // $30 minimum_watch_percentage
         
-        // ✅ LOTTERY FIELDS ($31-$40)
+        //  LOTTERY FIELDS ($31-$40)
         lottery_config?.lottery_enabled || false,                 // $31 lottery_enabled
         lottery_config?.prize_funding_source || null,             // $32 lottery_prize_funding_source
         lottery_config?.reward_type || null,                      // $33 lottery_reward_type
@@ -233,7 +233,7 @@ class ElectionService {
         mergedData.subscription_plan_id || null                   // $44
       ];
 
-      console.log('💾 Saving to database with values:', {
+      console.log('Saving to database with values:', {
         category_id: electionValues[26],
         video_watch_required: electionValues[27],
         minimum_watch_time: electionValues[28],
@@ -248,11 +248,11 @@ class ElectionService {
       const electionResult = await client.query(insertElectionQuery, electionValues);
       const publishedElection = electionResult.rows[0];
 
-      console.log('✅ Election saved with ID:', publishedElection.id);
+      console.log(' Election saved with ID:', publishedElection.id);
 
       // 2. INSERT REGIONAL PRICING (if applicable)
       if (regional_pricing && regional_pricing.length > 0) {
-        console.log('💰 Saving regional pricing:', regional_pricing.length, 'regions');
+        console.log(' Saving regional pricing:', regional_pricing.length, 'regions');
         
         for (const region of regional_pricing) {
           const regionalPricingQuery = `
@@ -280,7 +280,7 @@ class ElectionService {
 
       // 3. INSERT QUESTIONS AND OPTIONS
       if (questions && questions.length > 0) {
-        console.log('❓ Saving questions:', questions.length, 'questions');
+        console.log(' Saving questions:', questions.length, 'questions');
         
         for (const question of questions) {
           // Insert question

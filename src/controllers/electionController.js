@@ -79,8 +79,8 @@ class ElectionController {
     const { id } = req.params;
     const { userId } = req.user;
     
-    console.log('📸 req.files:', req.files);
-    console.log('📝 req.body.electionData:', req.body.electionData);
+    console.log(' req.files:', req.files);
+    console.log(' req.body.electionData:', req.body.electionData);
     
     let electionData;
     if (req.body.electionData) {
@@ -89,12 +89,12 @@ class ElectionController {
       electionData = req.body;
     }
 
-    console.log('📋 Parsed electionData before files:', electionData.election?.topic_image_url);
+    console.log(' Parsed electionData before files:', electionData.election?.topic_image_url);
 
     // Cloudinary URLs are in req.files[].path
     if (req.files) {
       if (req.files.topic_image && req.files.topic_image[0]) {
-        console.log('✅ Setting topic_image_url to:', req.files.topic_image[0].path);
+        console.log(' Setting topic_image_url to:', req.files.topic_image[0].path);
         if (electionData.election) {
           electionData.election.topic_image_url = req.files.topic_image[0].path;
         } else {
@@ -119,7 +119,7 @@ class ElectionController {
       }
     }
 
-    console.log('📋 Parsed electionData after files:', electionData.election?.topic_image_url);
+    console.log('📋Parsed electionData after files:', electionData.election?.topic_image_url);
 
     const election = await electionService.publishElectionFromDraft(id, userId, electionData);
 
