@@ -122,30 +122,24 @@ class ElectionController {
 
     console.log('📋Parsed electionData after files:', electionData.election?.topic_image_url);
 
-    const election = await electionService.publishElectionFromDraft(id, userId, electionData);
-    console.log('🔍 Election object returned:', {
-  id: election.id,
-  title: election.title,
-  election_title: election.election_title,
-  allKeys: Object.keys(election)
-});
+const election = await electionService.publishElectionFromDraft(id, userId, electionData);
 
-    // ✅ SOCKET.IO FIX: Changed field names to match notificationSocket.js expectations
-    setImmediate(() => {
-      try {
-        const notificationData = {
-          electionId: election.id,
-          electionTitle: election.title || election.election_title,
-          creatorId: userId
-        };
-        
-        console.log('📢 Emitting election created notification:', notificationData);
-        emitElectionCreated(notificationData);
-        console.log('✅ Election created notification sent successfully');
-      } catch (socketError) {
-        console.error('⚠️ Socket emission error:', socketError.message);
-      }
-    });
+// ✅ FIXED: Use the actual response structure
+setImmediate(() => {
+  try {
+    const notificationData = {
+      electionId: election.electionId,  // ✅ Changed from election.id
+      electionTitle: electionData.election?.title || electionData.title || 'New Election',  // ✅ Get from input data
+      creatorId: userId
+    };
+    
+    console.log('📢 Emitting election created notification:', notificationData);
+    emitElectionCreated(notificationData);
+    console.log('✅ Election created notification sent successfully');
+  } catch (socketError) {
+    console.error('⚠️ Socket emission error:', socketError.message);
+  }
+});
 
     res.status(HTTP_STATUS.CREATED).json(
       formatResponse(true, election, 'Election published successfully')
