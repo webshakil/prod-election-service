@@ -1,4 +1,6 @@
+// election-service/index.js - UPDATED WITH WEBSOCKET
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
@@ -10,11 +12,19 @@ import lotteryRoutes from './routes/lotteryRoutes.js';
 import contentCreatorRoutes from './routes/contentCreatorRoutes.js';
 import securityRoutes from './routes/securityRoutes.js';
 import { errorHandler } from './utils/errorHandler.js';
+import { initializeSocket } from '../socket/notificationSocket.js';
+//import { initializeSocket } from './socket/notificationSocket.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3005;
+
+// ✅ CREATE HTTP SERVER (REQUIRED FOR SOCKET.IO)
+const server = http.createServer(app);
+
+// ✅ INITIALIZE SOCKET.IO FOR NOTIFICATIONS
+initializeSocket(server);
 
 // Helmet
 app.use(helmet({
@@ -59,7 +69,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'election-service',
     version: '1.0.0',
-    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? 'configured' : 'not configured'
+    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? 'configured' : 'not configured',
+    websocket: 'enabled'
   });
 });
 
@@ -82,13 +93,14 @@ app.use('*', (req, res) => {
 app.use(errorHandler);
 
 // START SERVER
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log('='.repeat(50));
   console.log(`🚀 Election Service running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 API: http://localhost:${PORT}/api/elections`);
   console.log(`💚 Health: http://localhost:${PORT}/health`);
   console.log(`☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured' : '❌ Not Configured'}`);
+  console.log(`🔔 WebSocket: ✅ Enabled`);
   console.log('='.repeat(50));
 });
 
@@ -104,15 +116,13 @@ process.on('SIGINT', () => {
 });
 
 export default app;
-// //LAST workable file
+//last workable perfect code. just to add socket above code
 // import express from 'express';
 // import cors from 'cors';
 // import dotenv from 'dotenv';
 // import helmet from 'helmet';
 // import morgan from 'morgan';
 // import compression from 'compression';
-// import path from 'path';
-// import { fileURLToPath } from 'url';
 // import electionRoutes from './routes/electionRoutes.js';
 // import organizationRoutes from './routes/organizationRoutes.js';
 // import lotteryRoutes from './routes/lotteryRoutes.js';
@@ -122,13 +132,10 @@ export default app;
 
 // dotenv.config();
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
 // const app = express();
 // const PORT = process.env.PORT || 3005;
 
-
+// // Helmet
 // app.use(helmet({
 //   crossOriginResourcePolicy: { policy: "cross-origin" }
 // }));
@@ -163,17 +170,15 @@ export default app;
 // // Compression
 // app.use(compression());
 
-
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-
+// // Health check
 // app.get('/health', (req, res) => {
 //   res.status(200).json({
 //     success: true,
 //     message: 'Election Service is running',
 //     timestamp: new Date().toISOString(),
 //     service: 'election-service',
-//     version: '1.0.0'
+//     version: '1.0.0',
+//     cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? 'configured' : 'not configured'
 //   });
 // });
 
@@ -195,16 +200,14 @@ export default app;
 // // Error handler (must be last)
 // app.use(errorHandler);
 
-// // ============================================
 // // START SERVER
-// // ============================================
-
 // app.listen(PORT, () => {
 //   console.log('='.repeat(50));
 //   console.log(`🚀 Election Service running on port ${PORT}`);
 //   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
 //   console.log(`🌐 API: http://localhost:${PORT}/api/elections`);
 //   console.log(`💚 Health: http://localhost:${PORT}/health`);
+//   console.log(`☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configured' : '❌ Not Configured'}`);
 //   console.log('='.repeat(50));
 // });
 
