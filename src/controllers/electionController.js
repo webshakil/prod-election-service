@@ -123,6 +123,12 @@ class ElectionController {
     console.log('📋Parsed electionData after files:', electionData.election?.topic_image_url);
 
     const election = await electionService.publishElectionFromDraft(id, userId, electionData);
+    console.log('🔍 Election object returned:', {
+  id: election.id,
+  title: election.title,
+  election_title: election.election_title,
+  allKeys: Object.keys(election)
+});
 
     // ✅ SOCKET.IO FIX: Changed field names to match notificationSocket.js expectations
     setImmediate(() => {
