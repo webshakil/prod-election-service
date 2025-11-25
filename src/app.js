@@ -13,6 +13,8 @@ import contentCreatorRoutes from './routes/contentCreatorRoutes.js';
 import securityRoutes from './routes/securityRoutes.js';
 import { errorHandler } from './utils/errorHandler.js';
 import { initializeSocket } from '../socket/notificationSocket.js';
+import publicApiRoutes from './routes/publicApiRoutes.js';
+import adminApiRoutes from './routes/adminApiRoutes.js';
 //import { initializeSocket } from './socket/notificationSocket.js';
 
 dotenv.config();
@@ -80,6 +82,8 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/lottery', lotteryRoutes);
 app.use('/api/content-creator', contentCreatorRoutes);
 app.use('/api/security', securityRoutes);
+app.use('/api/v1', publicApiRoutes);    // External users (API key)
+app.use('/api/admin', adminApiRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
