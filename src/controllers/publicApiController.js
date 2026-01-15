@@ -324,3 +324,222 @@ export const getCategories = async (req, res) => {
     return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch categories.' } });
   }
 };
+
+
+
+// ✅ ADD THESE TO THE END OF: src/controllers/publicApiController.js
+
+// GET /api/v1/my/elections - Get elections owned by API key holder
+export const getMyElections = async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      category_id, 
+      voting_type,
+      permission_type,
+      sort_by = 'created_at', 
+      sort_order = 'DESC' 
+    } = req.query;
+
+    const userId = req.userId;
+    const organizationId = req.organizationId;
+
+    // Must have user_id or organization_id from API key
+    if (!userId && !organizationId) {
+      return respond(res, 403, { 
+        error: { 
+          code: 'NO_OWNERSHIP', 
+          message: 'API key is not associated with any user or organization.' 
+        } 
+      });
+    }
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const allowedSort = ['created_at', 'start_date', 'end_date', 'title', 'status'];
+    const sortField = allowedSort.includes(sort_by) ? sort_by : 'created_at';
+    const sortDir = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    // Build ownership filter
+    let where = [];
+    const params = [];
+    let i = 0;
+
+    // Filter by owner (user OR organization)
+    if (userId && organizationId) {
+      where.push(`(e.user_id = $${++i} OR e.organization_id = $${++i})`);
+      params.push(userId, organizationId);
+    } else if (userId) {
+      where.push(`e.user_id = $${++i}`);
+      params.push(userId);
+    } else {
+      where.push(`e.organization_id = $${++i}`);
+      params.push(organizationId);
+    }
+
+    // Optional filters
+    if (status) { where.push(`e.status = $${++i}`); params.push(status); }
+    if (category_id) { where.push(`e.category_id = $${++i}`); params.push(parseInt(category_id)); }
+    if (voting_type) { where.push(`e.voting_type = $${++i}`); params.push(voting_type); }
+    if (permission_type) { where.push(`e.permission_type = $${++i}`); params.push(permission_type); }
+
+    const whereClause = 'WHERE ' + where.join(' AND ');
+
+    // Count total
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM votteryyy_elections e ${whereClause}`, 
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    // Get elections (includes ALL - public + private - since they own them)
+    const result = await pool.query(`
+      SELECT 
+        e.id, e.title, e.description, e.slug, 
+        e.topic_image_url, e.topic_video_url, e.logo_url,
+        e.start_date, e.end_date, e.start_time, e.end_time, e.timezone, 
+        e.voting_type, e.permission_type, e.status, e.category_id,
+        e.is_free, e.pricing_type, e.general_participation_fee,
+        e.biometric_required, e.authentication_methods,
+        e.show_live_results, e.vote_editing_allowed,
+        e.video_watch_required, e.minimum_watch_time, e.minimum_watch_percentage,
+        e.lottery_enabled, e.lottery_total_prize_pool,
+        e.anonymous_voting_enabled,
+        e.user_id, e.organization_id,
+        e.created_at, e.updated_at, e.published_at,
+        COALESCE((SELECT COUNT(*) FROM votteryy_votes WHERE election_id = e.id AND status = 'valid'), 0)::integer as vote_count,
+        COALESCE((SELECT COUNT(*) FROM votteryyy_anonymous_votes WHERE election_id = e.id), 0)::integer as anonymous_vote_count
+      FROM votteryyy_elections e
+      ${whereClause}
+      ORDER BY e.${sortField} ${sortDir}
+      LIMIT $${++i} OFFSET $${++i}
+    `, [...params, limitNum, offset]);
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    return respond(res, 200, {
+      data: {
+        elections: result.rows.map(e => ({ 
+          ...e, 
+          total_votes: e.vote_count + e.anonymous_vote_count,
+          is_owner: true
+        })),
+        pagination: { 
+          page: pageNum, 
+          limit: limitNum, 
+          total, 
+          total_pages: totalPages, 
+          has_next: pageNum < totalPages, 
+          has_prev: pageNum > 1 
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Public API - getMyElections:', error);
+    return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch your elections.' } });
+  }
+};
+
+// GET /api/v1/my/elections/:id - Get single election owned by API key holder
+export const getMyElectionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+    const organizationId = req.organizationId;
+
+    if (!userId && !organizationId) {
+      return respond(res, 403, { 
+        error: { 
+          code: 'NO_OWNERSHIP', 
+          message: 'API key is not associated with any user or organization.' 
+        } 
+      });
+    }
+
+    // Build ownership condition
+    let ownershipCondition;
+    const params = [id];
+
+    if (userId && organizationId) {
+      ownershipCondition = '(e.user_id = $2 OR e.organization_id = $3)';
+      params.push(userId, organizationId);
+    } else if (userId) {
+      ownershipCondition = 'e.user_id = $2';
+      params.push(userId);
+    } else {
+      ownershipCondition = 'e.organization_id = $2';
+      params.push(organizationId);
+    }
+
+    // Get election (no permission_type filter - owner can see all their elections)
+    const result = await pool.query(`
+      SELECT 
+        e.*, 
+        COALESCE((SELECT COUNT(*) FROM votteryy_votes WHERE election_id = e.id AND status = 'valid'), 0)::integer as normal_vote_count,
+        COALESCE((SELECT COUNT(*) FROM votteryyy_anonymous_votes WHERE election_id = e.id), 0)::integer as anonymous_vote_count
+      FROM votteryyy_elections e
+      WHERE e.id = $1 AND ${ownershipCondition}
+    `, params);
+
+    if (result.rows.length === 0) {
+      return respond(res, 404, { 
+        error: { 
+          code: 'NOT_FOUND', 
+          message: 'Election not found or you do not have access.' 
+        } 
+      });
+    }
+
+    const election = result.rows[0];
+    election.total_vote_count = election.normal_vote_count + election.anonymous_vote_count;
+    election.is_owner = true;
+
+    // Get questions with options
+    const questionsResult = await pool.query(`
+      SELECT 
+        q.id, q.question_text, q.question_type, q.question_image_url,
+        q.question_order, q.is_required, q.max_selections,
+        json_agg(
+          json_build_object(
+            'id', o.id,
+            'option_text', o.option_text,
+            'option_image_url', o.option_image_url,
+            'option_order', o.option_order
+          ) ORDER BY o.option_order
+        ) as options
+      FROM votteryy_election_questions q
+      LEFT JOIN votteryy_election_options o ON q.id = o.question_id
+      WHERE q.election_id = $1
+      GROUP BY q.id
+      ORDER BY q.question_order
+    `, [id]);
+
+    election.questions = questionsResult.rows;
+
+    // Build lottery_config if enabled
+    if (election.lottery_enabled) {
+      election.lottery_config = {
+        lottery_enabled: election.lottery_enabled,
+        prize_funding_source: election.lottery_prize_funding_source,
+        reward_type: election.lottery_reward_type,
+        total_prize_pool: election.lottery_total_prize_pool,
+        prize_description: election.lottery_prize_description,
+        estimated_value: election.lottery_estimated_value,
+        winner_count: election.lottery_winner_count,
+        prize_distribution: election.lottery_prize_distribution
+      };
+    }
+
+    // Add shareable_url
+    election.shareable_url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/vote/${election.slug}`;
+
+    return respond(res, 200, { data: { election } });
+  } catch (error) {
+    console.error('Public API - getMyElectionById:', error);
+    return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch election.' } });
+  }
+};
