@@ -543,7 +543,7 @@ export const getMyElectionById = async (req, res) => {
     return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch election.' } });
   }
 };
-
+// GET /api/v1/users/:userId/elections
 export const getElectionsByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -553,7 +553,7 @@ export const getElectionsByUserId = async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    let where = ['e.user_id = $1'];
+    let where = ['e.creator_id = $1'];  // ✅ FIXED: changed from user_id to creator_id
     const params = [parseInt(userId)];
     let i = 1;
 
@@ -576,7 +576,7 @@ export const getElectionsByUserId = async (req, res) => {
       SELECT 
         e.id, e.title, e.description, e.slug,
         e.start_date, e.end_date, e.status, e.permission_type,
-        e.voting_type, e.category_id, e.user_id,
+        e.voting_type, e.category_id, e.creator_id, e.creator_type, e.organization_id,
         e.created_at, e.updated_at,
         COALESCE((SELECT COUNT(*) FROM votteryy_votes WHERE election_id = e.id AND status = 'valid'), 0)::integer as vote_count,
         COALESCE((SELECT COUNT(*) FROM votteryyy_anonymous_votes WHERE election_id = e.id), 0)::integer as anonymous_vote_count
@@ -606,3 +606,66 @@ export const getElectionsByUserId = async (req, res) => {
     return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch elections.' } });
   }
 };
+
+// export const getElectionsByUserId = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+//     const { page = 1, limit = 10, status } = req.query;
+
+//     const pageNum = Math.max(1, parseInt(page));
+//     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+//     const offset = (pageNum - 1) * limitNum;
+
+//     let where = ['e.user_id = $1'];
+//     const params = [parseInt(userId)];
+//     let i = 1;
+
+//     if (status) {
+//       where.push(`e.status = $${++i}`);
+//       params.push(status);
+//     }
+
+//     const whereClause = 'WHERE ' + where.join(' AND ');
+
+//     // Count
+//     const countResult = await pool.query(
+//       `SELECT COUNT(*) FROM votteryyy_elections e ${whereClause}`,
+//       params
+//     );
+//     const total = parseInt(countResult.rows[0].count);
+
+//     // Get elections
+//     const result = await pool.query(`
+//       SELECT 
+//         e.id, e.title, e.description, e.slug,
+//         e.start_date, e.end_date, e.status, e.permission_type,
+//         e.voting_type, e.category_id, e.user_id,
+//         e.created_at, e.updated_at,
+//         COALESCE((SELECT COUNT(*) FROM votteryy_votes WHERE election_id = e.id AND status = 'valid'), 0)::integer as vote_count,
+//         COALESCE((SELECT COUNT(*) FROM votteryyy_anonymous_votes WHERE election_id = e.id), 0)::integer as anonymous_vote_count
+//       FROM votteryyy_elections e
+//       ${whereClause}
+//       ORDER BY e.created_at DESC
+//       LIMIT $${++i} OFFSET $${++i}
+//     `, [...params, limitNum, offset]);
+
+//     return respond(res, 200, {
+//       data: {
+//         user_id: parseInt(userId),
+//         elections: result.rows.map(e => ({
+//           ...e,
+//           total_votes: e.vote_count + e.anonymous_vote_count
+//         })),
+//         pagination: {
+//           page: pageNum,
+//           limit: limitNum,
+//           total,
+//           total_pages: Math.ceil(total / limitNum)
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.error('getElectionsByUserId:', error);
+//     return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch elections.' } });
+//   }
+// };
