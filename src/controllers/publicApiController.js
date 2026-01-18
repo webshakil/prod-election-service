@@ -657,13 +657,13 @@ export const getElectionsByUserId = async (req, res) => {
 // GET /api/v1/elections/search/by-creator
 export const getElectionsByCreator = async (req, res) => {
   try {
-    const { email, page = 1, limit = 10, status } = req.query;
+    const { email, username, page = 1, limit = 10, status } = req.query;
 
-    if (!email) {
+    if (!email && !username) {
       return respond(res, 400, { 
         error: { 
           code: 'MISSING_PARAM', 
-          message: 'Please provide email query parameter.' 
+          message: 'Please provide email or username query parameter.' 
         } 
       });
     }
@@ -672,9 +672,21 @@ export const getElectionsByCreator = async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    let where = [`u.user_email = $1`];
-    const params = [email];
-    let i = 1;
+    let where = [];
+    const params = [];
+    let i = 0;
+
+    // OR condition - search by email OR username
+    if (email && username) {
+      where.push(`(u.user_email = $${++i} OR u.user_name = $${++i})`);
+      params.push(email, username);
+    } else if (email) {
+      where.push(`u.user_email = $${++i}`);
+      params.push(email);
+    } else if (username) {
+      where.push(`u.user_name = $${++i}`);
+      params.push(username);
+    }
 
     if (status) {
       where.push(`e.status = $${++i}`);
