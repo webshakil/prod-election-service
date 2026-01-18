@@ -654,6 +654,7 @@ export const getElectionsByUserId = async (req, res) => {
 };
 
 // GET /api/v1/elections/search/by-creator
+// GET /api/v1/elections/search/by-creator
 export const getElectionsByCreator = async (req, res) => {
   try {
     const { name, email, page = 1, limit = 10, status } = req.query;
@@ -666,6 +667,8 @@ export const getElectionsByCreator = async (req, res) => {
         } 
       });
     }
+
+    const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
@@ -697,6 +700,7 @@ export const getElectionsByCreator = async (req, res) => {
       ${whereClause}
     `, params);
     const total = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(total / limitNum);
 
     // Get elections
     const result = await pool.query(`
@@ -729,7 +733,7 @@ export const getElectionsByCreator = async (req, res) => {
           page: pageNum,
           limit: limitNum,
           total,
-          total_pages: Math.ceil(total / limitNum)
+          total_pages: totalPages
         }
       }
     });
