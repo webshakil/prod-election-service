@@ -8,9 +8,10 @@ import {
   getElectionResults,
   getElectionStats,
   getCategories,
-  getMyElections,      // ✅ NEW
-  getMyElectionById,    // ✅ NEW
-  getElectionsByUserId 
+  getMyElections,      
+  getMyElectionById,    
+  getElectionsByUserId, 
+  getElectionsByCreator
 } from '../controllers/publicApiController.js';
 
 const router = express.Router();
@@ -34,6 +35,7 @@ router.get('/categories', getCategories);
 // ✅ NEW: User's own elections (filtered by API key owner)
 router.get('/my/elections', getMyElections);
 router.get('/my/elections/:id', getMyElectionById);
+router.get('/elections/search/by-creator', getElectionsByCreator);
 router.get('/users/:userId/elections', getElectionsByUserId);
 
 export default router;

@@ -653,6 +653,92 @@ export const getElectionsByUserId = async (req, res) => {
   }
 };
 
+// GET /api/v1/elections/search/by-creator
+export const getElectionsByCreator = async (req, res) => {
+  try {
+    const { name, email, page = 1, limit = 10, status } = req.query;
+
+    if (!name && !email) {
+      return respond(res, 400, { 
+        error: { 
+          code: 'MISSING_PARAM', 
+          message: 'Please provide name or email query parameter.' 
+        } 
+      });
+    }
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    let where = [];
+    const params = [];
+    let i = 0;
+
+    if (name) {
+      where.push(`u.user_name ILIKE $${++i}`);
+      params.push(`%${name}%`);
+    }
+    if (email) {
+      where.push(`u.user_email = $${++i}`);
+      params.push(email);
+    }
+    if (status) {
+      where.push(`e.status = $${++i}`);
+      params.push(status);
+    }
+
+    const whereClause = 'WHERE ' + where.join(' AND ');
+
+    // Count
+    const countResult = await pool.query(`
+      SELECT COUNT(*) 
+      FROM votteryyy_elections e
+      LEFT JOIN votteryy_user_details ud ON e.creator_id = ud.user_id
+      LEFT JOIN users u ON ud.user_id = u.user_id
+      ${whereClause}
+    `, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    // Get elections
+    const result = await pool.query(`
+      SELECT 
+        e.id, e.title, e.description, e.slug,
+        e.topic_image_url, e.topic_video_url,
+        e.start_date, e.end_date, e.status, e.permission_type,
+        e.voting_type, e.category_id, e.creator_id, e.creator_type, e.organization_id,
+        e.created_at, e.updated_at,
+        COALESCE((SELECT COUNT(*) FROM votteryy_votes WHERE election_id = e.id AND status = 'valid'), 0)::integer as vote_count,
+        COALESCE((SELECT COUNT(*) FROM votteryyy_anonymous_votes WHERE election_id = e.id), 0)::integer as anonymous_vote_count,
+        u.user_name as creator_name,
+        u.user_email as creator_email
+      FROM votteryyy_elections e
+      LEFT JOIN votteryy_user_details ud ON e.creator_id = ud.user_id
+      LEFT JOIN users u ON ud.user_id = u.user_id
+      ${whereClause}
+      ORDER BY e.created_at DESC
+      LIMIT $${++i} OFFSET $${++i}
+    `, [...params, limitNum, offset]);
+
+    return respond(res, 200, {
+      data: {
+        elections: result.rows.map(e => ({
+          ...e,
+          total_votes: e.vote_count + e.anonymous_vote_count,
+          election_url: `${process.env.FRONTEND_URL || 'https://vottery.com'}/vote/${e.slug}`
+        })),
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          total_pages: Math.ceil(total / limitNum)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getElectionsByCreator:', error);
+    return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch elections.' } });
+  }
+};
+
 // export const getElectionsByUserId = async (req, res) => {
 //   try {
 //     const { userId } = req.params;
