@@ -80,13 +80,23 @@ export const getElections = async (req, res) => {
     `, [...params, limitNum, offset]);
     
     const totalPages = Math.ceil(total / limitNum);
-    
     return respond(res, 200, {
-      data: {
-        elections: result.rows.map(e => ({ ...e, total_votes: e.vote_count + e.anonymous_vote_count })),
-        pagination: { page: pageNum, limit: limitNum, total, total_pages: totalPages, has_next: pageNum < totalPages, has_prev: pageNum > 1 }
-      }
-    });
+  data: {
+    elections: result.rows.map(e => ({ 
+      ...e, 
+      total_votes: e.vote_count + e.anonymous_vote_count,
+      election_url: `${process.env.FRONTEND_URL || 'https://vottery.com'}/vote/${e.slug}`
+    })),
+    pagination: { page: pageNum, limit: limitNum, total, total_pages: totalPages, has_next: pageNum < totalPages, has_prev: pageNum > 1 }
+  }
+});
+    
+    // return respond(res, 200, {
+    //   data: {
+    //     elections: result.rows.map(e => ({ ...e, total_votes: e.vote_count + e.anonymous_vote_count })),
+    //     pagination: { page: pageNum, limit: limitNum, total, total_pages: totalPages, has_next: pageNum < totalPages, has_prev: pageNum > 1 }
+    //   }
+    // });
   } catch (error) {
     console.error('Public API - getElections:', error);
     return respond(res, 500, { error: { code: 'SERVER_ERROR', message: 'Failed to fetch elections.' } });
