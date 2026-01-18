@@ -657,13 +657,13 @@ export const getElectionsByUserId = async (req, res) => {
 // GET /api/v1/elections/search/by-creator
 export const getElectionsByCreator = async (req, res) => {
   try {
-    const { name, email, page = 1, limit = 10, status } = req.query;
+    const { email, page = 1, limit = 10, status } = req.query;
 
-    if (!name && !email) {
+    if (!email) {
       return respond(res, 400, { 
         error: { 
           code: 'MISSING_PARAM', 
-          message: 'Please provide name or email query parameter.' 
+          message: 'Please provide email query parameter.' 
         } 
       });
     }
@@ -672,18 +672,10 @@ export const getElectionsByCreator = async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    let where = [];
-    const params = [];
-    let i = 0;
+    let where = [`u.user_email = $1`];
+    const params = [email];
+    let i = 1;
 
-    if (name) {
-      where.push(`u.user_name ILIKE $${++i}`);
-      params.push(`%${name}%`);
-    }
-    if (email) {
-      where.push(`u.user_email = $${++i}`);
-      params.push(email);
-    }
     if (status) {
       where.push(`e.status = $${++i}`);
       params.push(status);
@@ -695,8 +687,7 @@ export const getElectionsByCreator = async (req, res) => {
     const countResult = await pool.query(`
       SELECT COUNT(*) 
       FROM votteryyy_elections e
-      LEFT JOIN votteryy_user_details ud ON e.creator_id = ud.user_id
-      LEFT JOIN users u ON ud.user_id = u.user_id
+      LEFT JOIN users u ON e.creator_id = u.user_id
       ${whereClause}
     `, params);
     const total = parseInt(countResult.rows[0].count);
@@ -715,8 +706,7 @@ export const getElectionsByCreator = async (req, res) => {
         u.user_name as creator_name,
         u.user_email as creator_email
       FROM votteryyy_elections e
-      LEFT JOIN votteryy_user_details ud ON e.creator_id = ud.user_id
-      LEFT JOIN users u ON ud.user_id = u.user_id
+      LEFT JOIN users u ON e.creator_id = u.user_id
       ${whereClause}
       ORDER BY e.created_at DESC
       LIMIT $${++i} OFFSET $${++i}
