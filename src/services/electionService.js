@@ -372,6 +372,7 @@ class ElectionService {
         const depositAmount = parseFloat(
           lottery_config.total_prize_pool || 
           lottery_config.estimated_value || 
+          lottery_config.projected_revenue ||
           0
         );
         
@@ -664,79 +665,7 @@ async getElectionById(electionId) {
     client.release();
   }
 }
-  // async getElectionById(electionId) {
-  //   const client = await pool.connect();
-    
-  //   try {
-  //     const electionQuery = `
-  //       SELECT 
-  //         e.*,
-  //         json_agg(
-  //           DISTINCT jsonb_build_object(
-  //             'region_code', erp.region_code,
-  //             'region_name', erp.region_name,
-  //             'participation_fee', erp.participation_fee,
-  //             'currency', erp.currency
-  //           )
-  //         ) FILTER (WHERE erp.id IS NOT NULL) as regional_pricing
-  //       FROM votteryyy_elections e
-  //       LEFT JOIN votteryy_election_regional_pricing erp ON e.id = erp.election_id
-  //       WHERE e.id = $1
-  //       GROUP BY e.id
-  //     `;
-
-  //     const electionResult = await client.query(electionQuery, [electionId]);
-      
-  //     if (electionResult.rows.length === 0) return null;
-
-  //     const election = electionResult.rows[0];
-
-  //     const questionsQuery = `
-  //       SELECT 
-  //         q.*,
-  //         json_agg(
-  //           jsonb_build_object(
-  //             'id', o.id,
-  //             'option_text', o.option_text,
-  //             'option_image_url', o.option_image_url,
-  //             'option_order', o.option_order
-  //           ) ORDER BY o.option_order
-  //         ) FILTER (WHERE o.id IS NOT NULL) as options
-  //       FROM votteryy_election_questions q
-  //       LEFT JOIN votteryy_election_options o ON q.id = o.question_id
-  //       WHERE q.election_id = $1
-  //       GROUP BY q.id
-  //       ORDER BY q.question_order
-  //     `;
-
-  //     const questionsResult = await client.query(questionsQuery, [election.id]);
-  //     election.questions = questionsResult.rows;
-
-  //     if (election.lottery_enabled) {
-  //       election.lottery_config = {
-  //         lottery_enabled: election.lottery_enabled,
-  //         prize_funding_source: election.lottery_prize_funding_source,
-  //         reward_type: election.lottery_reward_type,
-  //         total_prize_pool: election.lottery_total_prize_pool,
-  //         prize_description: election.lottery_prize_description,
-  //         estimated_value: election.lottery_estimated_value,
-  //         projected_revenue: election.lottery_projected_revenue,
-  //         revenue_share_percentage: election.lottery_revenue_share_percentage,
-  //         winner_count: election.lottery_winner_count,
-  //         prize_distribution: election.lottery_prize_distribution
-  //       };
-  //     } else {
-  //       election.lottery_config = null;
-  //     }
-
-  //     election.shareable_url = generateShareableUrl(election.slug, process.env.FRONTEND_URL);
-
-  //     return election;
-
-  //   } finally {
-  //     client.release();
-  //   }
-  // }
+  
 
   /**
    * Get election by slug with full details
@@ -1331,147 +1260,7 @@ async getElectionById(electionId) {
     limit: parseInt(limit)
   };
 }
-  // async getAllElections(filters = {}) {
-  //   const { page = 1, limit = 50, status, includeFullData = false } = filters;
-  //   const offset = (page - 1) * limit;
 
-  //   if (includeFullData) {
-  //     const client = await pool.connect();
-      
-  //     try {
-  //       let whereClause = '1=1';
-  //       const params = [];
-  //       let paramCount = 0;
-
-  //       if (status && status !== 'all') {
-  //         paramCount++;
-  //         whereClause += ` AND e.status = $${paramCount}`;
-  //         params.push(status);
-  //       }
-
-  //       const query = `
-  //         SELECT 
-  //           e.*,
-  //           COUNT(*) OVER() as total_count,
-            
-  //           COALESCE(
-  //             (
-  //               SELECT json_agg(
-  //                 jsonb_build_object(
-  //                   'id', erp.id,
-  //                   'region_code', erp.region_code,
-  //                   'region_name', erp.region_name,
-  //                   'participation_fee', erp.participation_fee,
-  //                   'currency', erp.currency
-  //                 )
-  //               )
-  //               FROM votteryy_election_regional_pricing erp
-  //               WHERE erp.election_id = e.id
-  //             ),
-  //             '[]'::json
-  //           ) as regional_pricing,
-            
-  //           COALESCE(
-  //             (
-  //               SELECT json_agg(
-  //                 jsonb_build_object(
-  //                   'id', q.id,
-  //                   'question_text', q.question_text,
-  //                   'question_type', q.question_type,
-  //                   'question_order', q.question_order,
-  //                   'question_image_url', q.question_image_url,
-  //                   'is_required', q.is_required,
-  //                   'max_selections', q.max_selections,
-  //                   'options', (
-  //                     SELECT json_agg(
-  //                       jsonb_build_object(
-  //                         'id', o.id,
-  //                         'option_text', o.option_text,
-  //                         'option_image_url', o.option_image_url,
-  //                         'option_order', o.option_order
-  //                       ) ORDER BY o.option_order
-  //                     )
-  //                     FROM votteryy_election_options o
-  //                     WHERE o.question_id = q.id
-  //                   )
-  //                 ) ORDER BY q.question_order
-  //               )
-  //               FROM votteryy_election_questions q
-  //               WHERE q.election_id = e.id
-  //             ),
-  //             '[]'::json
-  //           ) as questions
-            
-  //         FROM votteryyy_elections e
-  //         WHERE ${whereClause}
-  //         ORDER BY e.created_at DESC
-  //         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-  //       `;
-
-  //       params.push(limit, offset);
-
-  //       const result = await client.query(query, params);
-
-  //       result.rows.forEach(election => {
-  //         if (election.lottery_enabled) {
-  //           election.lottery_config = {
-  //             lottery_enabled: election.lottery_enabled,
-  //             prize_funding_source: election.lottery_prize_funding_source,
-  //             reward_type: election.lottery_reward_type,
-  //             total_prize_pool: election.lottery_total_prize_pool,
-  //             prize_description: election.lottery_prize_description,
-  //             estimated_value: election.lottery_estimated_value,
-  //             projected_revenue: election.lottery_projected_revenue,
-  //             revenue_share_percentage: election.lottery_revenue_share_percentage,
-  //             winner_count: election.lottery_winner_count,
-  //             prize_distribution: election.lottery_prize_distribution
-  //           };
-  //         } else {
-  //           election.lottery_config = null;
-  //         }
-  //       });
-
-  //       return {
-  //         elections: result.rows,
-  //         total: result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0,
-  //         page: parseInt(page),
-  //         limit: parseInt(limit)
-  //       };
-
-  //     } finally {
-  //       client.release();
-  //     }
-  //   }
-
-  //   let query = `
-  //     SELECT 
-  //       e.*,
-  //       COUNT(*) OVER() as total_count
-  //     FROM votteryyy_elections e
-  //     WHERE 1=1
-  //   `;
-
-  //   const params = [];
-  //   let paramCount = 0;
-
-  //   if (status && status !== 'all') {
-  //     paramCount++;
-  //     query += ` AND e.status = $${paramCount}`;
-  //     params.push(status);
-  //   }
-
-  //   query += ` ORDER BY e.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
-  //   params.push(limit, offset);
-
-  //   const result = await pool.query(query, params);
-
-  //   return {
-  //     elections: result.rows,
-  //     total: result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0,
-  //     page: parseInt(page),
-  //     limit: parseInt(limit)
-  //   };
-  // }
 
   async promoteToElectionCreator(userId, client) {
     try {
@@ -1497,6 +1286,13 @@ async getElectionById(electionId) {
 }
 
 export default new ElectionService();
+
+
+
+
+
+
+
 //last workable perfect code only to protect edit, delete close while having votes above code
 // import pool from '../config/database.js';
 // import { generateUniqueSlug, validateDates, generateShareableUrl } from '../utils/helpers.js';
