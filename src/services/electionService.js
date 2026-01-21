@@ -898,64 +898,99 @@ async getElectionById(electionId) {
  * Update election
  * ✅ MODIFIED: Added vote protection check and proper array handling
  */
+/**
+ * Update election
+ * ✅ If no votes: Allow all fields to be updated
+ * ✅ If has votes: Only allow end_date and end_time extension (max 6 months)
+ */
 async updateElection(electionId, userId, updateData) {
-  // ✅ Check for active votes before updating
-  const voteCheck = await this.hasActiveVotes(electionId);
-  if (voteCheck.hasVotes) {
-    throw new Error(
-      `Cannot update election: ${voteCheck.totalVotes} votes have been cast (${voteCheck.normalVotes} normal + ${voteCheck.anonymousVotes} anonymous). Elections with votes cannot be modified.`
-    );
-  }
-
   const election = await this.getElectionById(electionId);
   
   if (!election || election.creator_id !== userId) {
     return null;
   }
 
-  // ✅ FIX: Helper function to properly handle array fields for PostgreSQL
-  const sanitizeArrayField = (value) => {
-    if (value === undefined) {
-      return undefined; // Don't update this field
+  const voteCheck = await this.hasActiveVotes(electionId);
+  
+  // ✅ If election has votes, only allow end_date/end_time extension
+  if (voteCheck.hasVotes) {
+    const allowedFields = ['end_date', 'end_time'];
+    const requestedFields = Object.keys(updateData).filter(key => updateData[key] !== undefined);
+    const disallowedFields = requestedFields.filter(field => !allowedFields.includes(field));
+    
+    if (disallowedFields.length > 0) {
+      throw new Error(
+        `Cannot modify election with ${voteCheck.totalVotes} votes. Only end date/time extension is allowed.`
+      );
     }
-    if (value === null) {
-      return null;
-    }
-    if (Array.isArray(value)) {
-      return value.length === 0 ? null : value;
-    }
-    if (typeof value === 'string') {
-      // Handle JSON string like "[]" or '["US","UK"]'
-      if (value === '[]' || value === '') {
-        return null;
+    
+    // Validate extension
+    if (updateData.end_date || updateData.end_time) {
+      // Get current end date/time
+      const currentEndDate = election.end_date instanceof Date 
+        ? election.end_date.toISOString().split('T')[0]
+        : new Date(election.end_date).toISOString().split('T')[0];
+      const currentEndTime = election.end_time || '23:59:59';
+      
+      const newEndDate = updateData.end_date || currentEndDate;
+      const newEndTime = updateData.end_time || currentEndTime;
+      
+      const currentEnd = new Date(`${currentEndDate}T${currentEndTime}`);
+      const newEnd = new Date(`${newEndDate}T${newEndTime}`);
+      
+      // Check: Must extend, not shorten
+      if (newEnd <= currentEnd) {
+        throw new Error('Cannot shorten election duration. You can only extend the end date/time.');
       }
+      
+      // Check: Max 6 months extension
+      const maxExtension = new Date(currentEnd);
+      maxExtension.setMonth(maxExtension.getMonth() + 6);
+      
+      if (newEnd > maxExtension) {
+        throw new Error(
+          `Maximum extension is 6 months from current end date (${maxExtension.toISOString().split('T')[0]}).`
+        );
+      }
+      
+      console.log(`✅ Valid extension: ${currentEnd.toISOString()} → ${newEnd.toISOString()}`);
+    }
+    
+    // Only keep end_date and end_time
+    const filteredData = {};
+    if (updateData.end_date) filteredData.end_date = updateData.end_date;
+    if (updateData.end_time) filteredData.end_time = updateData.end_time;
+    
+    if (Object.keys(filteredData).length === 0) {
+      return election;
+    }
+    
+    updateData = filteredData;
+    console.log(`📝 Election has ${voteCheck.totalVotes} votes - only updating end date/time`);
+  }
+
+  // ✅ Helper functions for data sanitization
+  const sanitizeArrayField = (value) => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (Array.isArray(value)) return value.length === 0 ? null : value;
+    if (typeof value === 'string') {
+      if (value === '[]' || value === '') return null;
       try {
         const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) {
-          return parsed.length === 0 ? null : parsed;
-        }
-        return null;
+        return Array.isArray(parsed) && parsed.length === 0 ? null : parsed;
       } catch (e) {
-        // If it's not valid JSON, return null
         return null;
       }
     }
     return null;
   };
 
-  // ✅ FIX: Helper function to handle JSON fields
   const sanitizeJsonField = (value) => {
-    if (value === undefined) {
-      return undefined;
-    }
-    if (value === null) {
-      return null;
-    }
-    if (typeof value === 'object') {
-      return JSON.stringify(value);
-    }
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value === 'object') return JSON.stringify(value);
     if (typeof value === 'string') {
-      // Validate it's proper JSON
       try {
         JSON.parse(value);
         return value;
@@ -966,20 +1001,6 @@ async updateElection(electionId, userId, updateData) {
     return null;
   };
 
-  // ✅ FIX: Sanitize array fields before processing
-  if (updateData.allowed_countries !== undefined) {
-    updateData.allowed_countries = sanitizeArrayField(updateData.allowed_countries);
-  }
-  if (updateData.authentication_methods !== undefined) {
-    updateData.authentication_methods = sanitizeArrayField(updateData.authentication_methods);
-  }
-
-  // ✅ FIX: Sanitize JSON fields
-  if (updateData.corporate_style !== undefined) {
-    updateData.corporate_style = sanitizeJsonField(updateData.corporate_style);
-  }
-
-  // ✅ FIX: Handle boolean fields properly
   const sanitizeBoolean = (value) => {
     if (value === undefined) return undefined;
     if (value === null) return null;
@@ -989,29 +1010,6 @@ async updateElection(electionId, userId, updateData) {
     return Boolean(value);
   };
 
-  if (updateData.is_free !== undefined) {
-    updateData.is_free = sanitizeBoolean(updateData.is_free);
-  }
-  if (updateData.biometric_required !== undefined) {
-    updateData.biometric_required = sanitizeBoolean(updateData.biometric_required);
-  }
-  if (updateData.show_live_results !== undefined) {
-    updateData.show_live_results = sanitizeBoolean(updateData.show_live_results);
-  }
-  if (updateData.vote_editing_allowed !== undefined) {
-    updateData.vote_editing_allowed = sanitizeBoolean(updateData.vote_editing_allowed);
-  }
-  if (updateData.anonymous_voting_enabled !== undefined) {
-    updateData.anonymous_voting_enabled = sanitizeBoolean(updateData.anonymous_voting_enabled);
-  }
-  if (updateData.video_watch_required !== undefined) {
-    updateData.video_watch_required = sanitizeBoolean(updateData.video_watch_required);
-  }
-  if (updateData.lottery_enabled !== undefined) {
-    updateData.lottery_enabled = sanitizeBoolean(updateData.lottery_enabled);
-  }
-
-  // ✅ FIX: Handle numeric fields properly
   const sanitizeNumber = (value, isInteger = false) => {
     if (value === undefined) return undefined;
     if (value === null || value === '') return null;
@@ -1019,91 +1017,62 @@ async updateElection(electionId, userId, updateData) {
     return isNaN(num) ? null : num;
   };
 
-  if (updateData.general_participation_fee !== undefined) {
-    updateData.general_participation_fee = sanitizeNumber(updateData.general_participation_fee);
+  // Sanitize array fields
+  if (updateData.allowed_countries !== undefined) {
+    updateData.allowed_countries = sanitizeArrayField(updateData.allowed_countries);
   }
-  if (updateData.processing_fee_percentage !== undefined) {
-    updateData.processing_fee_percentage = sanitizeNumber(updateData.processing_fee_percentage);
-  }
-  if (updateData.category_id !== undefined) {
-    updateData.category_id = sanitizeNumber(updateData.category_id, true);
-  }
-  if (updateData.minimum_watch_time !== undefined) {
-    updateData.minimum_watch_time = sanitizeNumber(updateData.minimum_watch_time, true);
-  }
-  if (updateData.minimum_watch_percentage !== undefined) {
-    updateData.minimum_watch_percentage = sanitizeNumber(updateData.minimum_watch_percentage);
+  if (updateData.authentication_methods !== undefined) {
+    updateData.authentication_methods = sanitizeArrayField(updateData.authentication_methods);
   }
 
+  // Sanitize JSON fields
+  if (updateData.corporate_style !== undefined) {
+    updateData.corporate_style = sanitizeJsonField(updateData.corporate_style);
+  }
+
+  // Sanitize boolean fields
+  const booleanFields = [
+    'is_free', 'biometric_required', 'show_live_results', 'vote_editing_allowed',
+    'anonymous_voting_enabled', 'video_watch_required', 'lottery_enabled'
+  ];
+  booleanFields.forEach(field => {
+    if (updateData[field] !== undefined) {
+      updateData[field] = sanitizeBoolean(updateData[field]);
+    }
+  });
+
+  // Sanitize numeric fields
+  const numericFields = {
+    'general_participation_fee': false,
+    'processing_fee_percentage': false,
+    'category_id': true,
+    'minimum_watch_time': true,
+    'minimum_watch_percentage': false
+  };
+  Object.entries(numericFields).forEach(([field, isInt]) => {
+    if (updateData[field] !== undefined) {
+      updateData[field] = sanitizeNumber(updateData[field], isInt);
+    }
+  });
+
+  // Build query
   const fields = [];
   const values = [];
   let paramCount = 0;
 
-  // ✅ EXPANDED: All allowed fields for updating
   const allowedFields = [
-    // Basic Info
-    'title', 
-    'description', 
-    'topic_image_url', 
-    'topic_video_url', 
-    'logo_url',
-    
-    // Scheduling
-    'start_date', 
-    'start_time',
-    'end_date', 
-    'end_time',
-    'timezone', 
-    
-    // Voting Configuration
-    'voting_type', 
-    'voting_body_content',
-    
-    // Access Control
-    'permission_type', 
-    'allowed_countries',
-    
-    // Pricing
-    'is_free', 
-    'pricing_type',
-    'general_participation_fee', 
-    'processing_fee_percentage',
-    
-    // Authentication
-    'biometric_required',
-    'authentication_methods',
-    
-    // Features
-    'show_live_results', 
-    'vote_editing_allowed',
-    'anonymous_voting_enabled',
-    
-    // Category
-    'category_id',
-    
-    // Video Watch Requirements
-    'video_watch_required',
-    'minimum_watch_time',
-    'minimum_watch_percentage',
-    
-    // Lottery Fields
-    'lottery_enabled',
-    'lottery_prize_funding_source',
-    'lottery_reward_type',
-    'lottery_total_prize_pool',
-    'lottery_prize_description',
-    'lottery_estimated_value',
-    'lottery_projected_revenue',
-    'lottery_revenue_share_percentage',
-    'lottery_winner_count',
-    'lottery_prize_distribution',
-    
-    // Branding
-    'custom_url', 
-    'corporate_style',
-    
-    // Status
-    'status'
+    'title', 'description', 'topic_image_url', 'topic_video_url', 'logo_url',
+    'start_date', 'start_time', 'end_date', 'end_time', 'timezone',
+    'voting_type', 'voting_body_content', 'permission_type', 'allowed_countries',
+    'is_free', 'pricing_type', 'general_participation_fee', 'processing_fee_percentage',
+    'biometric_required', 'authentication_methods', 'show_live_results',
+    'vote_editing_allowed', 'anonymous_voting_enabled', 'category_id',
+    'video_watch_required', 'minimum_watch_time', 'minimum_watch_percentage',
+    'lottery_enabled', 'lottery_prize_funding_source', 'lottery_reward_type',
+    'lottery_total_prize_pool', 'lottery_prize_description', 'lottery_estimated_value',
+    'lottery_projected_revenue', 'lottery_revenue_share_percentage',
+    'lottery_winner_count', 'lottery_prize_distribution',
+    'custom_url', 'corporate_style', 'status'
   ];
 
   for (const field of allowedFields) {
@@ -1128,73 +1097,257 @@ async updateElection(electionId, userId, updateData) {
     RETURNING *
   `;
 
-  console.log('📝 Update Election Query:', {
-    electionId,
-    userId,
-    fieldsToUpdate: fields.length - 1, // Exclude updated_at
-    fields: allowedFields.filter(f => updateData[f] !== undefined)
-  });
+  console.log('📝 Updating election:', { electionId, fieldsUpdated: fields.length - 1 });
 
   const result = await pool.query(query, values);
-  
-  if (result.rows[0]) {
-    console.log('✅ Election updated successfully:', result.rows[0].id);
-  }
-  
   return result.rows[0];
 }
-  // async updateElection(electionId, userId, updateData) {
-  //   // ✅ NEW: Check for active votes before updating
-  //   const voteCheck = await this.hasActiveVotes(electionId);
-  //   if (voteCheck.hasVotes) {
-  //     throw new Error(
-  //       `Cannot update election: ${voteCheck.totalVotes} votes have been cast (${voteCheck.normalVotes} normal + ${voteCheck.anonymousVotes} anonymous). Elections with votes cannot be modified.`
-  //     );
-  //   }
+// async updateElection(electionId, userId, updateData) {
+//   // ✅ Check for active votes before updating
+//   const voteCheck = await this.hasActiveVotes(electionId);
+//   if (voteCheck.hasVotes) {
+//     throw new Error(
+//       `Cannot update election: ${voteCheck.totalVotes} votes have been cast (${voteCheck.normalVotes} normal + ${voteCheck.anonymousVotes} anonymous). Elections with votes cannot be modified.`
+//     );
+//   }
 
-  //   const election = await this.getElectionById(electionId);
+//   const election = await this.getElectionById(electionId);
+  
+//   if (!election || election.creator_id !== userId) {
+//     return null;
+//   }
+
+//   // ✅ FIX: Helper function to properly handle array fields for PostgreSQL
+//   const sanitizeArrayField = (value) => {
+//     if (value === undefined) {
+//       return undefined; // Don't update this field
+//     }
+//     if (value === null) {
+//       return null;
+//     }
+//     if (Array.isArray(value)) {
+//       return value.length === 0 ? null : value;
+//     }
+//     if (typeof value === 'string') {
+//       // Handle JSON string like "[]" or '["US","UK"]'
+//       if (value === '[]' || value === '') {
+//         return null;
+//       }
+//       try {
+//         const parsed = JSON.parse(value);
+//         if (Array.isArray(parsed)) {
+//           return parsed.length === 0 ? null : parsed;
+//         }
+//         return null;
+//       } catch (e) {
+//         // If it's not valid JSON, return null
+//         return null;
+//       }
+//     }
+//     return null;
+//   };
+
+//   // ✅ FIX: Helper function to handle JSON fields
+//   const sanitizeJsonField = (value) => {
+//     if (value === undefined) {
+//       return undefined;
+//     }
+//     if (value === null) {
+//       return null;
+//     }
+//     if (typeof value === 'object') {
+//       return JSON.stringify(value);
+//     }
+//     if (typeof value === 'string') {
+//       // Validate it's proper JSON
+//       try {
+//         JSON.parse(value);
+//         return value;
+//       } catch (e) {
+//         return null;
+//       }
+//     }
+//     return null;
+//   };
+
+//   // ✅ FIX: Sanitize array fields before processing
+//   if (updateData.allowed_countries !== undefined) {
+//     updateData.allowed_countries = sanitizeArrayField(updateData.allowed_countries);
+//   }
+//   if (updateData.authentication_methods !== undefined) {
+//     updateData.authentication_methods = sanitizeArrayField(updateData.authentication_methods);
+//   }
+
+//   // ✅ FIX: Sanitize JSON fields
+//   if (updateData.corporate_style !== undefined) {
+//     updateData.corporate_style = sanitizeJsonField(updateData.corporate_style);
+//   }
+
+//   // ✅ FIX: Handle boolean fields properly
+//   const sanitizeBoolean = (value) => {
+//     if (value === undefined) return undefined;
+//     if (value === null) return null;
+//     if (typeof value === 'boolean') return value;
+//     if (value === 'true' || value === '1') return true;
+//     if (value === 'false' || value === '0') return false;
+//     return Boolean(value);
+//   };
+
+//   if (updateData.is_free !== undefined) {
+//     updateData.is_free = sanitizeBoolean(updateData.is_free);
+//   }
+//   if (updateData.biometric_required !== undefined) {
+//     updateData.biometric_required = sanitizeBoolean(updateData.biometric_required);
+//   }
+//   if (updateData.show_live_results !== undefined) {
+//     updateData.show_live_results = sanitizeBoolean(updateData.show_live_results);
+//   }
+//   if (updateData.vote_editing_allowed !== undefined) {
+//     updateData.vote_editing_allowed = sanitizeBoolean(updateData.vote_editing_allowed);
+//   }
+//   if (updateData.anonymous_voting_enabled !== undefined) {
+//     updateData.anonymous_voting_enabled = sanitizeBoolean(updateData.anonymous_voting_enabled);
+//   }
+//   if (updateData.video_watch_required !== undefined) {
+//     updateData.video_watch_required = sanitizeBoolean(updateData.video_watch_required);
+//   }
+//   if (updateData.lottery_enabled !== undefined) {
+//     updateData.lottery_enabled = sanitizeBoolean(updateData.lottery_enabled);
+//   }
+
+//   // ✅ FIX: Handle numeric fields properly
+//   const sanitizeNumber = (value, isInteger = false) => {
+//     if (value === undefined) return undefined;
+//     if (value === null || value === '') return null;
+//     const num = isInteger ? parseInt(value, 10) : parseFloat(value);
+//     return isNaN(num) ? null : num;
+//   };
+
+//   if (updateData.general_participation_fee !== undefined) {
+//     updateData.general_participation_fee = sanitizeNumber(updateData.general_participation_fee);
+//   }
+//   if (updateData.processing_fee_percentage !== undefined) {
+//     updateData.processing_fee_percentage = sanitizeNumber(updateData.processing_fee_percentage);
+//   }
+//   if (updateData.category_id !== undefined) {
+//     updateData.category_id = sanitizeNumber(updateData.category_id, true);
+//   }
+//   if (updateData.minimum_watch_time !== undefined) {
+//     updateData.minimum_watch_time = sanitizeNumber(updateData.minimum_watch_time, true);
+//   }
+//   if (updateData.minimum_watch_percentage !== undefined) {
+//     updateData.minimum_watch_percentage = sanitizeNumber(updateData.minimum_watch_percentage);
+//   }
+
+//   const fields = [];
+//   const values = [];
+//   let paramCount = 0;
+
+//   // ✅ EXPANDED: All allowed fields for updating
+//   const allowedFields = [
+//     // Basic Info
+//     'title', 
+//     'description', 
+//     'topic_image_url', 
+//     'topic_video_url', 
+//     'logo_url',
     
-  //   if (!election || election.creator_id !== userId) {
-  //     return null;
-  //   }
+//     // Scheduling
+//     'start_date', 
+//     'start_time',
+//     'end_date', 
+//     'end_time',
+//     'timezone', 
+    
+//     // Voting Configuration
+//     'voting_type', 
+//     'voting_body_content',
+    
+//     // Access Control
+//     'permission_type', 
+//     'allowed_countries',
+    
+//     // Pricing
+//     'is_free', 
+//     'pricing_type',
+//     'general_participation_fee', 
+//     'processing_fee_percentage',
+    
+//     // Authentication
+//     'biometric_required',
+//     'authentication_methods',
+    
+//     // Features
+//     'show_live_results', 
+//     'vote_editing_allowed',
+//     'anonymous_voting_enabled',
+    
+//     // Category
+//     'category_id',
+    
+//     // Video Watch Requirements
+//     'video_watch_required',
+//     'minimum_watch_time',
+//     'minimum_watch_percentage',
+    
+//     // Lottery Fields
+//     'lottery_enabled',
+//     'lottery_prize_funding_source',
+//     'lottery_reward_type',
+//     'lottery_total_prize_pool',
+//     'lottery_prize_description',
+//     'lottery_estimated_value',
+//     'lottery_projected_revenue',
+//     'lottery_revenue_share_percentage',
+//     'lottery_winner_count',
+//     'lottery_prize_distribution',
+    
+//     // Branding
+//     'custom_url', 
+//     'corporate_style',
+    
+//     // Status
+//     'status'
+//   ];
 
-  //   const fields = [];
-  //   const values = [];
-  //   let paramCount = 0;
+//   for (const field of allowedFields) {
+//     if (updateData[field] !== undefined) {
+//       paramCount++;
+//       fields.push(`${field} = $${paramCount}`);
+//       values.push(updateData[field]);
+//     }
+//   }
 
-  //   const allowedFields = [
-  //     'title', 'description', 'topic_image_url', 'topic_video_url', 'logo_url',
-  //     'start_date', 'end_date', 'timezone', 'voting_type', 'voting_body_content',
-  //     'permission_type', 'allowed_countries', 'is_free', 'pricing_type',
-  //     'general_participation_fee', 'processing_fee_percentage', 'biometric_required',
-  //     'authentication_methods', 'custom_url', 'corporate_style', 'status'
-  //   ];
+//   if (fields.length === 0) {
+//     return election;
+//   }
 
-  //   for (const field of allowedFields) {
-  //     if (updateData[field] !== undefined) {
-  //       paramCount++;
-  //       fields.push(`${field} = $${paramCount}`);
-  //       values.push(updateData[field]);
-  //     }
-  //   }
+//   fields.push(`updated_at = CURRENT_TIMESTAMP`);
+//   values.push(electionId, userId);
 
-  //   if (fields.length === 0) {
-  //     return election;
-  //   }
+//   const query = `
+//     UPDATE votteryyy_elections
+//     SET ${fields.join(', ')}
+//     WHERE id = $${paramCount + 1} AND creator_id = $${paramCount + 2}
+//     RETURNING *
+//   `;
 
-  //   fields.push(`updated_at = CURRENT_TIMESTAMP`);
-  //   values.push(electionId, userId);
+//   console.log('📝 Update Election Query:', {
+//     electionId,
+//     userId,
+//     fieldsToUpdate: fields.length - 1, // Exclude updated_at
+//     fields: allowedFields.filter(f => updateData[f] !== undefined)
+//   });
 
-  //   const query = `
-  //     UPDATE votteryyy_elections
-  //     SET ${fields.join(', ')}
-  //     WHERE id = $${paramCount + 1} AND creator_id = $${paramCount + 2}
-  //     RETURNING *
-  //   `;
+//   const result = await pool.query(query, values);
+  
+//   if (result.rows[0]) {
+//     console.log('✅ Election updated successfully:', result.rows[0].id);
+//   }
+  
+//   return result.rows[0];
+// }
 
-  //   const result = await pool.query(query, values);
-  //   return result.rows[0];
-  // }
 
   /**
    * Delete election
