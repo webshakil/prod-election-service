@@ -229,20 +229,44 @@ setImmediate(() => {
    * ✅ FIXED: Now passes includeFullData: true to get regional_pricing, lottery_config, questions
    */
   getMyElections = asyncHandler(async (req, res) => {
-    const { userId } = req.user;
-    const { status, page, limit } = req.query;
+  const { userId } = req.user;
+  
+  // ✅ DEBUG: Log the userId being used
+  console.log('🔍 getMyElections called with userId:', userId);
+  console.log('🔍 Full req.user:', req.user);
+  
+  const { status, page, limit } = req.query;
 
-    const result = await electionService.getUserElections(userId, {
-      status,
-      page,
-      limit,
-      includeFullData: true
-    });
-
-    res.status(HTTP_STATUS.OK).json(
-      formatResponse(true, result, 'Elections retrieved successfully')
-    );
+  const result = await electionService.getUserElections(userId, {
+    status,
+    page,
+    limit,
+    includeFullData: true
   });
+
+  // ✅ DEBUG: Log what the service returns
+  console.log('🔍 Service returned elections count:', result.elections?.length);
+  console.log('🔍 First election creator_id:', result.elections?.[0]?.creator_id);
+
+  res.status(HTTP_STATUS.OK).json(
+    formatResponse(true, result, 'Elections retrieved successfully')
+  );
+});
+  // getMyElections = asyncHandler(async (req, res) => {
+  //   const { userId } = req.user;
+  //   const { status, page, limit } = req.query;
+
+  //   const result = await electionService.getUserElections(userId, {
+  //     status,
+  //     page,
+  //     limit,
+  //     includeFullData: true
+  //   });
+
+  //   res.status(HTTP_STATUS.OK).json(
+  //     formatResponse(true, result, 'Elections retrieved successfully')
+  //   );
+  // });
 
   /**
    * Update election
